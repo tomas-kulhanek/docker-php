@@ -1,0 +1,31 @@
+name: Clean registry for images
+run-name: ${{ github.actor }} running cleaning of images
+
+on: workflow_dispatch
+
+jobs:
+  remove-old-containers:
+    name: Remove old containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decode the GitHub App Private Key
+        id: decode
+        run: |
+          private_key=$(echo "${{ secrets.GH_APP_PRIVATE_KEY }}" | base64 -d | awk 'BEGIN {ORS="\\n"} {print}' | head -c -2) &> /dev/null
+          echo "::add-mask::$private_key"
+          echo "private-key=$private_key" >> "$GITHUB_OUTPUT"
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          owner: ${{ github.repository_owner }}
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ steps.decode.outputs.private-key }}
+
+      - name: Delete cache version containers older than 7 days
+        uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: user
+          image-names: docker-php-cache
+          cut-off: 1min
+          token: ${{ steps.generate-token.outputs.token }}
