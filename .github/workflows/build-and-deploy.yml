@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        php-version: ["8.2", "8.3"]
+        php-version: ["8.2", "8.3", "8.4"]
         platform: ["linux/amd64"]
 
     steps:
@@ -77,3 +77,5 @@ jobs:
           cache-repository: ${{ env.REGISTRY }}/${{ steps.imageName.outputs.imageName }}-cache
           context: .
           file: Dockerfile
+          build-args: |
+            PHP_VERSION=${{ matrix.php-version }}
