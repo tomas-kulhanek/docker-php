@@ -1,12 +1,12 @@
-name: Clean registry for images
-run-name: ${{ github.actor }} running cleaning of images
+name: Clean old images
+run-name: ${{ github.actor }} running cleaning of old images
 
 on: workflow_dispatch
 
 jobs:
   remove-old-containers:
     name: Remove old containers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Decode the GitHub App Private Key
         id: decode
