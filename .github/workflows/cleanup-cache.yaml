@@ -6,7 +6,7 @@ on: workflow_dispatch
 jobs:
   remove-old-containers:
     name: Remove old containers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Decode the GitHub App Private Key
         id: decode
