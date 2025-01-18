@@ -1,5 +1,5 @@
-name: Clean registry for images
-run-name: ${{ github.actor }} running cleaning of images
+name: Clean cache images
+run-name: ${{ github.actor }} running cleaning of cache images
 
 on: workflow_dispatch
 
