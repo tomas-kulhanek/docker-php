@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  LATEST_PHP_VERSION: 8.3
+  LATEST_PHP_VERSION: 8.4
 
 jobs:
   build:
