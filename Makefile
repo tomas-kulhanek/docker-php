@@ -1,5 +1,5 @@
 # Misc
-IMAGE_PATH = ghcr.io/smartmailer-cz/docker-application
+IMAGE_PATH = ghcr.io/tomas-kulhanek/docker-php
 
 .DEFAULT_GOAL = help
 .PHONY        : help build push
@@ -17,4 +17,5 @@ build: ## Builds the Docker images
 push: ## Push the Docker images to Github Container Registry
 push: build
 push:
-	docker buildx build --platform linux/amd64,linux/arm64 --build-arg PHP_VERSION=8.4 -t "$(IMAGE_PATH):php-8.4" -t "$(IMAGE_PATH):php-8.4-latest" --push .
+	docker buildx build --platform linux/amd64,linux/arm64 --build-arg PHP_VERSION=8.4 -t "$(IMAGE_PATH):8.4" -t "$(IMAGE_PATH):8.4-latest" --push .
+	docker buildx build --platform linux/amd64,linux/arm64 --build-arg PHP_VERSION=8.3 -t "$(IMAGE_PATH):8.3" -t "$(IMAGE_PATH):8.3-latest" --push .
