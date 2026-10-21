@@ -46,10 +46,11 @@ RUN set -eux; \
     [ -e /usr/lib/libsybdb.so ] || ln -s /usr/lib/libsybdb.so.5 /usr/lib/libsybdb.so || true; \
     docker-php-ext-install -j"$(nproc)" pdo_dblib
 
+# ctype curl dom fileinfo filter mbstring opcache pdo_sqlite session simplexml
+# sodium xml are compiled into the base image (rebuilding dom fails on 8.5 - lexbor)
 RUN docker-php-ext-install -j"$(nproc)" \
-    bcmath bz2 calendar ctype curl dom fileinfo filter exif ftp \
-    gettext gmp intl mbstring mysqli opcache pcntl pdo_mysql \
-    pdo_sqlite session simplexml soap sodium tidy zip xsl xml
+    bcmath bz2 calendar exif ftp gettext gmp intl mysqli \
+    pcntl pdo_mysql soap tidy zip xsl
 
 RUN docker-php-ext-configure gd --with-jpeg --with-xpm --with-webp --with-freetype && \
     docker-php-ext-install -j"$(nproc)" gd

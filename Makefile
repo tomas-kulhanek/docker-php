@@ -1,21 +1,36 @@
-# Misc
-IMAGE_PATH = ghcr.io/tomas-kulhanek/docker-php
+PHP_VERSIONS ?= 8.3 8.4 8.5
+BUILDER      ?= docker-php-builder
 
-.DEFAULT_GOAL = help
-.PHONY        : help build push
+export BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+export SHA    := $(shell git rev-parse HEAD)
 
-## —— 🎵 🐳 The Symfony Docker Makefile 🐳 🎵 ——————————————————————————————————
-help: ## Outputs this help screen
-	@grep -E '(^[a-zA-Z0-9\./_-]+:.*?##.*$$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
+BAKE := docker buildx bake --builder $(BUILDER)
 
-## —— Docker 🐳 ————————————————————————————————————————————————————————————————
-build: ## Builds the Docker images
-	docker buildx create --name multi --use >/dev/null 2>&1 || docker buildx use multi
-	docker buildx inspect --bootstrap
+.PHONY: all builder login build push print $(addprefix build-,$(PHP_VERSIONS)) $(addprefix push-,$(PHP_VERSIONS))
 
+all: push
 
-push: ## Push the Docker images to Github Container Registry
-push: build
-push:
-	docker buildx build --platform linux/amd64,linux/arm64 --build-arg PHP_VERSION=8.4 -t "$(IMAGE_PATH):8.4" -t "$(IMAGE_PATH):8.4-latest" --push .
-	docker buildx build --platform linux/amd64,linux/arm64 --build-arg PHP_VERSION=8.3 -t "$(IMAGE_PATH):8.3" -t "$(IMAGE_PATH):8.3-latest" --push .
+# Multi-platform builds need a docker-container builder (with QEMU for the foreign arch)
+builder:
+	@docker buildx inspect $(BUILDER) >/dev/null 2>&1 || \
+		docker buildx create --name $(BUILDER) --driver docker-container
+	docker buildx inspect $(BUILDER) --bootstrap >/dev/null
+
+login:
+	docker login ghcr.io
+
+# Show resolved bake config (tags, labels, platforms)
+print:
+	$(BAKE) --print
+
+# Build only (result stays in buildx cache; multi-platform images can't be --load-ed)
+build: builder
+	$(BAKE)
+$(addprefix build-,$(PHP_VERSIONS)): build-%: builder
+	$(BAKE) php-$(subst .,-,$*)
+
+# Build and push to GHCR
+push: builder
+	$(BAKE) --push
+$(addprefix push-,$(PHP_VERSIONS)): push-%: builder
+	$(BAKE) --push php-$(subst .,-,$*)
