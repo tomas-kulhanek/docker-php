@@ -39,6 +39,7 @@ RUN set -eux; \
     docker-php-ext-configure iconv --with-iconv=/usr; \
     docker-php-ext-install -j"$(nproc)" iconv
 
+# imap stays on PECL: upstream php/pecl-mail-imap has no composer.json, so PIE can't install it
 RUN set -eux; \
     pecl install imap && docker-php-ext-enable imap
 
@@ -55,9 +56,14 @@ RUN docker-php-ext-install -j"$(nproc)" \
 RUN docker-php-ext-configure gd --with-jpeg --with-xpm --with-webp --with-freetype && \
     docker-php-ext-install -j"$(nproc)" gd
 
+COPY --from=ghcr.io/php/pie:1.5.2-bin /pie /usr/bin/pie
+
+# PIE enables each extension itself (conf.d ini); igbinary has only an RC on Packagist
 RUN set -eux; \
-    pecl install amqp redis ds memcached igbinary apcu msgpack; \
-    docker-php-ext-enable amqp redis ds memcached igbinary apcu msgpack
+    for pkg in \
+      php-amqp/php-amqp phpredis/phpredis php-ds/ext-ds php-memcached/php-memcached \
+      igbinary/igbinary:3.2.17RC1 apcu/apcu msgpack/msgpack-php \
+    ; do pie install --no-interaction "$pkg"; done
 
 
 FROM php:${PHP_VERSION}-fpm-alpine AS runtime
