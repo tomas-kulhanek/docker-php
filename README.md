@@ -4,14 +4,11 @@ PHP-FPM, Nginx, Supervisor, and cron in one Alpine-based image. Application code
 
 ## Published images
 
-| Registry | PHP versions | Tags |
-| --- | --- | --- |
-| GHCR: `ghcr.io/tomas-kulhanek/docker-php` | 8.3, 8.4, 8.5 | `<version>-latest`, `<version>-<full-commit-sha>` |
-| Docker Hub: `kulhanekt/php` | 8.2, 8.3, 8.4, 8.5 | `<version>-latest`, `<version>-<full-commit-sha>` |
+Images are published only to GHCR: `ghcr.io/tomas-kulhanek/docker-php` for PHP 8.3, 8.4, and 8.5. Available tags are `<version>-latest` and `<version>-<full-commit-sha>`.
 
-Both registries use PHP 8.4 for the unqualified `latest` tag. PHP 8.2 reaches upstream end of life on 31 December 2026; its Docker Hub tag should be retired then.
+The unqualified `latest` tag uses PHP 8.4. The existing Docker Hub images are no longer published or updated by this repository.
 
-Publishing runs on every push to `main`, every Monday, and on manual dispatch. Each build pulls the current base image and fails if PHP lacks the security fixes introduced in PHP 8.2.35, 8.3.36, 8.4.27, and 8.5.12. The Docker Hub workflow requires the `DOCKERHUB_TOKEN` repository secret.
+GHCR publishing runs on every push to `main`, every Monday, and on manual dispatch. Each build pulls the current base image and fails if PHP lacks the security fixes introduced in PHP 8.3.36, 8.4.27, and 8.5.12. PHP 8.2 is still covered by the CI smoke test but is not published.
 
 ## Deployment and security
 
