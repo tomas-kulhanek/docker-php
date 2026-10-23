@@ -72,7 +72,9 @@ ENV LD_PRELOAD=/usr/lib/preloadable_libiconv.so.0
 ENV TZ=Europe/Prague
 ENV PYTHONWARNINGS="ignore:pkg_resources"
 
+# Introduced in PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12.
 RUN set -eux; \
+    php -r 'if (ini_get("memory_hard_limit_percent") === false) { fwrite(STDERR, "PHP security release required\n"); exit(1); }'; \
     apk add --no-cache \
       supervisor nginx rsyslog fcgi dcron \
       tzdata ca-certificates bash curl lsof \
@@ -107,20 +109,10 @@ COPY --from=build /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 COPY ./rootfs /rootfs
 COPY ./entrypoint.d /entrypoint.d
 
-RUN printf '%s\n' \
-  '[supervisord]' \
-  'nodaemon=true' \
-  'user=root' \
-  '' \
-  '[rpcinterface:supervisor]' \
-  'supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface' \
-  '' \
-  '[supervisorctl]' \
-  'serverurl=http://127.0.0.1:9006' \
-  '' \
-  '[include]' \
-  'files = /etc/supervisor/conf.d/*.conf' \
-  > /etc/supervisord.conf
+# The PHP base entrypoint does not run /entrypoint.d.
+RUN cp -a /rootfs/. / && \
+    php -r 'if (ini_get("memory_limit") !== "256M" || ini_get("post_max_size") !== "8M" || ini_get("max_input_nesting_level") !== "4" || ini_get("session.upload_progress.enabled") !== "0" || ini_get("expose_php") !== "0") { fwrite(STDERR, "PHP hardening configuration not loaded\n"); exit(1); }' && \
+    php-fpm -t && nginx -t
 
 RUN printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/crond -f -l 8' > /usr/sbin/cron && chmod +x /usr/sbin/cron
 
@@ -136,4 +128,4 @@ LABEL description="Docker image with PHP-FPM ${PHP_VERSION} on PHP Alpine image,
 
 CMD ["supervisord","-c","/etc/supervisord.conf"]
 
-EXPOSE 9006 9000 8080
+EXPOSE 9000 8080

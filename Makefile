@@ -1,10 +1,10 @@
 PHP_VERSIONS ?= 8.3 8.4 8.5
 BUILDER      ?= docker-php-builder
 
-export BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+export BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed -E 's/[^a-zA-Z0-9_.-]+/-/g')
 export SHA    := $(shell git rev-parse HEAD)
 
-BAKE := docker buildx bake --builder $(BUILDER)
+BAKE := docker buildx bake --pull --builder $(BUILDER)
 
 .PHONY: all builder login build push print $(addprefix build-,$(PHP_VERSIONS)) $(addprefix push-,$(PHP_VERSIONS))
 
