@@ -6,9 +6,9 @@ export SHA    := $(shell git rev-parse HEAD)
 
 BAKE := docker buildx bake --pull --builder $(BUILDER)
 
-.PHONY: all builder login build push print $(addprefix build-,$(PHP_VERSIONS)) $(addprefix push-,$(PHP_VERSIONS))
+.PHONY: all builder login build push print check-clean $(addprefix build-,$(PHP_VERSIONS)) $(addprefix push-,$(PHP_VERSIONS))
 
-all: push
+all: build
 
 # Multi-platform builds need a docker-container builder (with QEMU for the foreign arch)
 builder:
@@ -18,6 +18,10 @@ builder:
 
 login:
 	docker login ghcr.io
+
+# The revision label must describe the exact files sent to the builder.
+check-clean:
+	@test -z "$$(git status --porcelain)" || { echo "Commit all changes before pushing images" >&2; exit 1; }
 
 # Show resolved bake config (tags, labels, platforms)
 print:
@@ -30,7 +34,7 @@ $(addprefix build-,$(PHP_VERSIONS)): build-%: builder
 	$(BAKE) php-$(subst .,-,$*)
 
 # Build and push to GHCR
-push: builder
+push: check-clean builder
 	$(BAKE) --push
-$(addprefix push-,$(PHP_VERSIONS)): push-%: builder
+$(addprefix push-,$(PHP_VERSIONS)): push-%: check-clean builder
 	$(BAKE) --push php-$(subst .,-,$*)
