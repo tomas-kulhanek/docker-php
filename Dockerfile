@@ -39,9 +39,15 @@ RUN set -eux; \
     docker-php-ext-configure iconv --with-iconv=/usr; \
     docker-php-ext-install -j"$(nproc)" iconv
 
-# imap stays on PECL: upstream php/pecl-mail-imap has no composer.json, so PIE can't install it
+# PHP 8.2 bundles IMAP; the PECL release requires PHP 8.3 or newer.
 RUN set -eux; \
-    pecl install imap && docker-php-ext-enable imap
+    if [ "$(php -r 'echo PHP_VERSION_ID;')" -lt 80300 ]; then \
+      docker-php-ext-configure imap --with-kerberos --with-imap-ssl; \
+      docker-php-ext-install -j"$(nproc)" imap; \
+    else \
+      pecl install imap-1.0.3; \
+      docker-php-ext-enable imap; \
+    fi
 
 RUN set -eux; \
     [ -e /usr/lib/libsybdb.so ] || ln -s /usr/lib/libsybdb.so.5 /usr/lib/libsybdb.so || true; \
@@ -56,7 +62,7 @@ RUN docker-php-ext-install -j"$(nproc)" \
 RUN docker-php-ext-configure gd --with-jpeg --with-xpm --with-webp --with-freetype && \
     docker-php-ext-install -j"$(nproc)" gd
 
-COPY --from=ghcr.io/php/pie:1.5.2-bin /pie /usr/bin/pie
+COPY --from=ghcr.io/php/pie:1.5.2-bin@sha256:a254c78b51ca34daef0541fa1cf0147385c93ba5ca799868392275d947f00fe7 /pie /usr/bin/pie
 
 # PIE enables each extension itself (conf.d ini); igbinary has only an RC on Packagist
 RUN set -eux; \
@@ -74,15 +80,15 @@ ENV PYTHONWARNINGS="ignore:pkg_resources"
 
 # Introduced in PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12.
 RUN set -eux; \
+    cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"; \
     php -r 'if (ini_get("memory_hard_limit_percent") === false) { fwrite(STDERR, "PHP security release required\n"); exit(1); }'; \
     apk add --no-cache \
-      supervisor nginx rsyslog fcgi dcron \
-      tzdata ca-certificates bash curl lsof \
+      supervisor nginx dcron \
+      tzdata ca-certificates bash curl \
       libzip zlib bzip2 \
       libxml2 libxslt \
       icu-libs \
       openssl krb5-libs \
-      curl \
       gmp \
       rabbitmq-c \
       libmemcached cyrus-sasl \
@@ -111,14 +117,18 @@ COPY ./entrypoint.d /entrypoint.d
 
 # The PHP base entrypoint does not run /entrypoint.d.
 RUN cp -a /rootfs/. / && \
-    php -r 'if (ini_get("memory_limit") !== "256M" || ini_get("post_max_size") !== "8M" || ini_get("max_input_nesting_level") !== "4" || ini_get("session.upload_progress.enabled") !== "0" || ini_get("expose_php") !== "0") { fwrite(STDERR, "PHP hardening configuration not loaded\n"); exit(1); }' && \
+    php -r 'if (ini_get("memory_limit") !== "256M" || ini_get("post_max_size") !== "8M" || ini_get("max_input_nesting_level") !== "4" || ini_get("session.upload_progress.enabled") !== "0" || ini_get("expose_php") !== "0" || ini_get("display_errors") !== "" || ini_get("log_errors") !== "1") { fwrite(STDERR, "PHP hardening configuration not loaded\n"); exit(1); }' && \
     php-fpm -t && nginx -t
 
 RUN printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/crond -f -l 8' > /usr/sbin/cron && chmod +x /usr/sbin/cron
 
-RUN echo '#!/bin/sh' > /healthcheck && \
-    echo 'env -i SCRIPT_NAME=/health SCRIPT_FILENAME=/health REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1' >> /healthcheck && \
-    chmod +x /healthcheck
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      'set -eu' \
+      'curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8080/php-fpm-ping | grep -qx pong' \
+      > /healthcheck && chmod +x /healthcheck
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/healthcheck"]
 
 WORKDIR /app
 
@@ -128,4 +138,4 @@ LABEL description="Docker image with PHP-FPM ${PHP_VERSION} on PHP Alpine image,
 
 CMD ["supervisord","-c","/etc/supervisord.conf"]
 
-EXPOSE 9000 8080
+EXPOSE 8080

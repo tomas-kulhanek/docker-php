@@ -22,7 +22,7 @@ variable "REPO_URL" {
   default = "https://github.com/tomas-kulhanek/docker-php"
 }
 
-# Passed in from Makefile (git); without them the <ver><branch>-<sha> tag is skipped
+# Passed in from Makefile. Only main updates the mutable latest tags.
 variable "BRANCH" {
   default = ""
 }
@@ -49,11 +49,11 @@ target "php" {
   }
 
   tags = concat(
-    flatten([for img in IMAGES : concat(
+    BRANCH == "main" ? flatten([for img in IMAGES : concat(
       ["${img}:${ver}-latest"],
       ver == LATEST_PHP_VERSION ? ["${img}:latest"] : []
-    )]),
-    SHA != "" ? ["${GHCR_IMAGE}:${ver}${BRANCH}-${SHA}"] : []
+    )]) : [],
+    SHA != "" ? ["${GHCR_IMAGE}:${ver}-${SHA}"] : []
   )
 
   labels = {

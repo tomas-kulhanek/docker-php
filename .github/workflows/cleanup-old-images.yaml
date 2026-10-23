@@ -1,11 +1,21 @@
 name: Clean old images
-run-name: ${{ github.actor }} running cleaning of old images
+run-name: Clean old images (requested by ${{ github.actor }})
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview deletions without removing images
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
 
 jobs:
   remove-old-containers:
-    name: Remove old containers
+    name: Review and prune image versions
     runs-on: ubuntu-24.04
     steps:
       - name: Decode the GitHub App Private Key
@@ -16,26 +26,29 @@ jobs:
           echo "private-key=$private_key" >> "$GITHUB_OUTPUT"
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           owner: ${{ github.repository_owner }}
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ steps.decode.outputs.private-key }}
-      - name: Delete version containers without "latest" in tag
-        uses: snok/container-retention-policy@v3.0.0
+      - name: Review and prune old application image versions
+        uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
           account: user
           image-names: docker-php
           image-tags: |
-            latest
-            *-latest
-          cut-off: 5min
+            !latest
+            !*-latest
+          cut-off: 30d
+          keep-n-most-recent: 5
+          dry-run: ${{ inputs.dry_run }}
           token: ${{ steps.generate-token.outputs.token }}
 
-      - name: Delete cache version containers older than 7 days
-        uses: snok/container-retention-policy@v3.0.0
+      - name: Review and prune old cache image versions
+        uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
           account: user
           image-names: docker-php-cache
           cut-off: 1w
+          dry-run: ${{ inputs.dry_run }}
           token: ${{ steps.generate-token.outputs.token }}
