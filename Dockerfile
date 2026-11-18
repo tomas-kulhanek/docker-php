@@ -83,7 +83,7 @@ RUN set -eux; \
     cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"; \
     php -r 'if (ini_get("memory_hard_limit_percent") === false) { fwrite(STDERR, "PHP security release required\n"); exit(1); }'; \
     apk add --no-cache \
-      supervisor nginx dcron \
+      supervisor 'nginx>=1.30.7' dcron \
       tzdata ca-certificates bash curl \
       libzip zlib bzip2 \
       libxml2 libxslt \

@@ -38,6 +38,12 @@ test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/f
 fpm_config=$(docker exec "$container" php-fpm -tt 2>&1)
 [[ "$fpm_config" == *'listen = 127.0.0.1:9000'* ]]
 docker exec "$container" php -r '$ip = gethostbyname(gethostname()); if (!filter_var($ip, FILTER_VALIDATE_IP) || $ip === "127.0.0.1") exit(2); $socket = @fsockopen($ip, 9000, $code, $message, 1); if ($socket) { fclose($socket); exit(1); }'
+nginx_version=$(docker exec "$container" nginx -v 2>&1)
+nginx_version=${nginx_version##*/}
+if [ "$(docker exec "$container" apk version -t "$nginx_version" 1.30.7)" = '<' ]; then
+    echo "Nginx $nginx_version lacks the NGINX2Root fixes from 1.30.7" >&2
+    exit 1
+fi
 logs=$(docker logs "$container" 2>&1)
 [[ "$logs" == *SMOKE_WARNING* ]]
 if docker exec -u www-data "$container" supervisorctl -s http://127.0.0.1:9006 status >/dev/null 2>&1; then
