@@ -39,16 +39,6 @@ RUN set -eux; \
     docker-php-ext-configure iconv --with-iconv=/usr; \
     docker-php-ext-install -j"$(nproc)" iconv
 
-# PHP 8.2 bundles IMAP; the PECL release requires PHP 8.3 or newer.
-RUN set -eux; \
-    if [ "$(php -r 'echo PHP_VERSION_ID;')" -lt 80300 ]; then \
-      docker-php-ext-configure imap --with-kerberos --with-imap-ssl; \
-      docker-php-ext-install -j"$(nproc)" imap; \
-    else \
-      pecl install imap-1.0.3; \
-      docker-php-ext-enable imap; \
-    fi
-
 RUN set -eux; \
     [ -e /usr/lib/libsybdb.so ] || ln -s /usr/lib/libsybdb.so.5 /usr/lib/libsybdb.so || true; \
     docker-php-ext-install -j"$(nproc)" pdo_dblib
@@ -63,6 +53,30 @@ RUN docker-php-ext-configure gd --with-jpeg --with-xpm --with-webp --with-freety
     docker-php-ext-install -j"$(nproc)" gd
 
 COPY --from=ghcr.io/php/pie:1.5.2-bin@sha256:a254c78b51ca34daef0541fa1cf0147385c93ba5ca799868392275d947f00fe7 /pie /usr/bin/pie
+
+# PHP 8.2 bundles IMAP; the PECL release requires PHP 8.3 or newer.
+# The official IMAP repository has no composer.json, so it is not on Packagist.
+# PIE installs the checksum-pinned official PECL release from a local path
+# repository, with the options pecl used by default. The path repository must
+# stay for later `pie install` runs to resolve; only extensions reach runtime.
+ARG IMAP_VERSION=1.0.3
+ARG IMAP_SHA256=0c2c0b1f94f299004be996b85a424e3d11ff65ac0a3c980db3213289a4a3faaf
+COPY build/imap/composer.json /tmp/imap-composer.json
+RUN set -eux; \
+    if [ "$(php -r 'echo PHP_VERSION_ID;')" -lt 80300 ]; then \
+      docker-php-ext-configure imap --with-kerberos --with-imap-ssl; \
+      docker-php-ext-install -j"$(nproc)" imap; \
+    else \
+      curl -fsSL -o /tmp/imap.tgz "https://pecl.php.net/get/imap-${IMAP_VERSION}.tgz"; \
+      echo "${IMAP_SHA256}  /tmp/imap.tgz" | sha256sum -c -; \
+      mkdir /opt/pie-imap; \
+      tar -xzf /tmp/imap.tgz -C /opt/pie-imap --strip-components=1 "imap-${IMAP_VERSION}"; \
+      sed "s/@IMAP_VERSION@/${IMAP_VERSION}/" /tmp/imap-composer.json > /opt/pie-imap/composer.json; \
+      pie repository:add path /opt/pie-imap; \
+      pie install --no-interaction "local/imap:${IMAP_VERSION}" --with-kerberos --with-imap-ssl; \
+      rm /tmp/imap.tgz; \
+    fi; \
+    rm /tmp/imap-composer.json
 
 # PIE enables each extension itself (conf.d ini); igbinary has only an RC on Packagist
 RUN set -eux; \
