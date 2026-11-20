@@ -9,12 +9,18 @@ permissions:
 
 jobs:
   smoke:
-    name: PHP ${{ matrix.php-version }} smoke test
+    name: PHP ${{ matrix.php-version }} smoke test${{ matrix.experimental && ' (experimental)' || '' }}
     runs-on: ubuntu-24.04
+    # PHP 8.6 may fail until PIE extensions release PHP 8.6 support.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         php-version: ['8.2', '8.3', '8.4', '8.5']
+        experimental: [false]
+        include:
+          - php-version: '8.6'
+            experimental: true
 
     steps:
       - name: Check out the proposed change

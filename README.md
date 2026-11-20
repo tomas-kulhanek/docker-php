@@ -10,6 +10,8 @@ The unqualified `latest` tag uses PHP 8.4. The existing Docker Hub images are no
 
 GHCR publishing runs on every push to `main`, every Monday, and on manual dispatch. Each build pulls the current base image and fails if PHP lacks the security fixes introduced in PHP 8.3.36, 8.4.27, and 8.5.12. PHP 8.2 is still covered by the CI smoke test but is not published.
 
+PHP 8.6 runs in the CI smoke test as an experimental job that may fail; it is not published yet. The released versions of amqp, redis, ds, igbinary, apcu, msgpack, and memcached do not compile on PHP 8.6, so the 8.6 image will be published after those extensions release PHP 8.6 support.
+
 ## Deployment and security
 
 - Publish only HTTP port `8080`. Nginx is the only network-facing service. PHP-FPM listens on container loopback port `9000`; do not override it to a network-facing address.
