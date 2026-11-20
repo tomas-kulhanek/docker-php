@@ -1,0 +1,23 @@
+{
+    "name": "local/imap",
+    "type": "php-ext",
+    "version": "@IMAP_VERSION@",
+    "license": "PHP-3.01",
+    "description": "Official PECL IMAP release, installed by PIE from a local path repository",
+    "require": {
+        "php": ">=8.3"
+    },
+    "php-ext": {
+        "extension-name": "imap",
+        "configure-options": [
+            {
+                "name": "with-kerberos",
+                "description": "Include Kerberos support"
+            },
+            {
+                "name": "with-imap-ssl",
+                "description": "Include SSL support"
+            }
+        ]
+    }
+}
