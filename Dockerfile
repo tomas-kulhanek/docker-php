@@ -59,22 +59,35 @@ COPY --from=ghcr.io/php/pie:1.5.2-bin@sha256:a254c78b51ca34daef0541fa1cf0147385c
 # PIE installs the checksum-pinned official PECL release from a local path
 # repository, with the options pecl used by default. The path repository must
 # stay for later `pie install` runs to resolve; only extensions reach runtime.
+# IMAP 1.0.3 does not compile on PHP 8.6. For 8.6 only, the source is the
+# pinned upstream commit with 1.0.3 plus the PHP 8.6 build fix
+# (php/pecl-mail-imap#23). Switch to the next IMAP release once it is published.
 ARG IMAP_VERSION=1.0.3
 ARG IMAP_SHA256=0c2c0b1f94f299004be996b85a424e3d11ff65ac0a3c980db3213289a4a3faaf
+ARG IMAP_PHP86_COMMIT=c441c79add125f5a01f88332805221edeebe47b0
 COPY build/imap/composer.json /tmp/imap-composer.json
 RUN set -eux; \
-    if [ "$(php -r 'echo PHP_VERSION_ID;')" -lt 80300 ]; then \
+    php_version_id="$(php -r 'echo PHP_VERSION_ID;')"; \
+    if [ "$php_version_id" -lt 80300 ]; then \
       docker-php-ext-configure imap --with-kerberos --with-imap-ssl; \
       docker-php-ext-install -j"$(nproc)" imap; \
     else \
-      curl -fsSL -o /tmp/imap.tgz "https://pecl.php.net/get/imap-${IMAP_VERSION}.tgz"; \
-      echo "${IMAP_SHA256}  /tmp/imap.tgz" | sha256sum -c -; \
       mkdir /opt/pie-imap; \
-      tar -xzf /tmp/imap.tgz -C /opt/pie-imap --strip-components=1 "imap-${IMAP_VERSION}"; \
+      if [ "$php_version_id" -lt 80600 ]; then \
+        curl -fsSL -o /tmp/imap.tgz "https://pecl.php.net/get/imap-${IMAP_VERSION}.tgz"; \
+        echo "${IMAP_SHA256}  /tmp/imap.tgz" | sha256sum -c -; \
+        tar -xzf /tmp/imap.tgz -C /opt/pie-imap --strip-components=1 "imap-${IMAP_VERSION}"; \
+        rm /tmp/imap.tgz; \
+      else \
+        git -C /opt/pie-imap init -q; \
+        git -C /opt/pie-imap fetch -q --depth 1 https://github.com/php/pecl-mail-imap.git "${IMAP_PHP86_COMMIT}"; \
+        git -C /opt/pie-imap checkout -q FETCH_HEAD; \
+        test "$(git -C /opt/pie-imap rev-parse HEAD)" = "${IMAP_PHP86_COMMIT}"; \
+        rm -rf /opt/pie-imap/.git; \
+      fi; \
       sed "s/@IMAP_VERSION@/${IMAP_VERSION}/" /tmp/imap-composer.json > /opt/pie-imap/composer.json; \
       pie repository:add path /opt/pie-imap; \
       pie install --no-interaction "local/imap:${IMAP_VERSION}" --with-kerberos --with-imap-ssl; \
-      rm /tmp/imap.tgz; \
     fi; \
     rm /tmp/imap-composer.json
 
